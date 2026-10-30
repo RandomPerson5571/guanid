@@ -1,0 +1,16 @@
+cmake_minimum_required(VERSION 3.16)
+project(guanid VERSION 0.1.0 LANGUAGES CXX)
+
+add_library(guanid INTERFACE)
+target_include_directories(guanid INTERFACE include)
+target_compile_features(guanid INTERFACE cxx_std_17)
+
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(guanid_tests tests/core.cpp)
+    target_link_libraries(guanid_tests PRIVATE guanid)
+    add_test(NAME guanid_core COMMAND guanid_tests)
+    add_executable(guanid_routine_tests tests/routine.cpp)
+    target_link_libraries(guanid_routine_tests PRIVATE guanid)
+    add_test(NAME guanid_routine COMMAND guanid_routine_tests)
+endif()
