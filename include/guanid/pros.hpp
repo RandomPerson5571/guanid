@@ -2,6 +2,7 @@
 
 #include "guanid/routine.hpp"
 #include "guanid/sysid.hpp"
+#include "guanid/public_units.hpp"
 #include "pros/error.h"
 #include "pros/motor_group.hpp"
 #include "pros/motors.hpp"
@@ -70,6 +71,19 @@ struct ProsMechanism {
 // hardware. Configure reversal and degree encoder units on the motors first.
 class ProsMotorChannel {
 public:
+    // Preferred public factories. Geometry is inches; arm offsets are degrees.
+    template <typename Motor>
+    static ProsMotorChannel linearInches(std::string name, Motor& motors, double wheelDiameterIn,
+                                        double wheelTurnsPerMotorTurn = 1, int driveDirection = 1) {
+        return linear(std::move(name), motors, {wheelDiameterIn * metersPerInch, wheelTurnsPerMotorTurn}, driveDirection);
+    }
+    template <typename Motor>
+    static ProsMotorChannel angularDegrees(std::string name, Motor& motors,
+                                          double outputTurnsPerMotorTurn = 1,
+                                          double horizontalOffsetDeg = 0, int driveDirection = 1) {
+        return angular(std::move(name), motors, outputTurnsPerMotorTurn,
+                       horizontalOffsetDeg * radiansPerDegree, driveDirection);
+    }
     static ProsMotorChannel linear(std::string name, pros::Motor& motor,
                                    Geometry geometry, int drive_direction = 1) {
         return {std::move(name), motor, geometry, Units::linear, 0, drive_direction};

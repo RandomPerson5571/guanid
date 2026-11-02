@@ -20,6 +20,31 @@ int main() {
     config.step_volts = 7;
     const auto discard = [](const Record&) { return true; };
 
+    // Public factories preserve motor gearing, degree offsets and physical SI capture.
+    {
+        pros::Motor wheel, arm;
+        wheel.readings[0].degrees = 360;
+        arm.readings[0].degrees = 360;
+        std::vector<Record> rows;
+        ProsSysIdRoutine routine(config, {
+            ProsMotorChannel::linearInches("wheel", wheel, 4, 0.5),
+            ProsMotorChannel::angularDegrees("arm", arm, 0.25, 30)
+        }, [&](const Record& row) { rows.push_back(row); return true; });
+        check(routine.startDynamic(Direction::forward));
+        routine.update();
+        check(near(rows[0].motor.position/metersPerInch, 2*pi));
+        check(near(rows[1].motor.position/radiansPerDegree, 120));
+        auto* csv = std::tmpfile();
+        check(csv && writeRecordHeader(csv) && writePublicRecord(csv, rows[0]) && writePublicRecord(csv, rows[1]));
+        std::rewind(csv);
+        char buffer[1024]{};
+        const auto length = std::fread(buffer, 1, sizeof(buffer)-1, csv);
+        const std::string output(buffer, length);
+        check(output.find(",wheel,in,") != std::string::npos);
+        check(output.find(",arm,deg,") != std::string::npos);
+        std::fclose(csv);
+    }
+
     // Group averaging, wheel gearing, measured voltage, signs and channel names.
     {
         pros::MotorGroup left, right;

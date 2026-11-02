@@ -64,6 +64,11 @@ if(BUILD_TESTING)
     target_link_libraries(guanid_pros_tests PRIVATE guanid)
     add_test(NAME guanid_pros COMMAND guanid_pros_tests)
     if(GUANID_BUILD_EXAMPLES AND GUANID_BUILD_ANALYZER)
+        find_package(Python3 COMPONENTS Interpreter QUIET)
+        if(Python3_Interpreter_FOUND)
+            add_test(NAME guanid_public_units COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/public_units.py ${CMAKE_CURRENT_BINARY_DIR})
+        endif()
         add_test(NAME guanid_cli COMMAND ${CMAKE_COMMAND}
             -DCAPTURE=$<TARGET_FILE:guanid_callback_capture>
             -DANALYZE=$<TARGET_FILE:guanid_analyze>

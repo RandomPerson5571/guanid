@@ -1,4 +1,4 @@
-#include "guanid/analysis.hpp"
+#include "guanid/public_units.hpp"
 #include <cstdlib>
 #include <iostream>
 
@@ -37,6 +37,12 @@ int main() {
         check(fit.ok && fit.samples>700 && fit.acceleration_r_squared>0.999);
         close(fit.gains.kS,0.3); close(fit.gains.kV,1.4); close(fit.gains.kA,0.45);
         close(fit.gains.kG,model == Model::simple ? 0 : 0.7);
+        const auto publicFit = analyzePublic(rows,"motor",config);
+        const double scale = siPerPublicUnit(fit.units);
+        close(publicFit.gains().kV,fit.gains.kV*scale,1e-12);
+        close(publicFit.gains().kA,fit.gains.kA*scale,1e-12);
+        close(publicFit.calculate(0.6/scale,1.2/scale,0.8/scale),
+              fit.gains.calculate(model,0.6,1.2,0.8),1e-12);
         check(fit.forward.ok == (model != Model::elevator));
         close(fit.voltage_rmse,0,0.001);
         for (const auto& d : fit.diagnostics) check(std::isfinite(d.residual));
@@ -90,6 +96,10 @@ int main() {
     check(derived[50].motor.units==Units::angular);
     pairs.pop_back(); check(!deriveDrivetrain(pairs,"left","right","turn",derived,0.5));
 
+    TrackWidthCalibrationInches publicWidth;
+    check(publicWidth.addSpin(0,-10*3.14159265358979323846,0,10*3.14159265358979323846,0,360));
+    close(publicWidth.result().trackWidthIn,10,1e-12);
+    check(!publicWidth.addSpin(0,10,0,10,0,360));
     // Timestamp dropouts cannot contribute a derivative across the gap.
     rows=dataset(Model::simple);
     for (auto& r : rows) if (r.time_s>2) r.time_s+=0.5;

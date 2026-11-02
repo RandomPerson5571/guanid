@@ -1,5 +1,10 @@
 # API and output reference
 
+Preferred robot-facing APIs and output contracts are documented in [units.md](units.md).
+`public_units.hpp` adds `analyzePublic`, `writePublicRecord`, reciprocal-gain
+conversion and `TrackWidthCalibrationInches`; `pros.hpp` adds `linearInches`
+and `angularDegrees`. Existing SI APIs retain their semantics.
+
 Public headers are under `include/guanid/`. All APIs are in namespace `guanid`.
 
 - `pros.hpp`: `ProsSysIdRoutine`, `ProsMotorChannel`, `prosRuntime`, `Geometry`, and the legacy two-sided `run` adapter.

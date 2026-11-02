@@ -4,9 +4,9 @@
 // Copy this file into your PROS project's src/ directory. No LemLib is needed.
 // Call from a dedicated opcontrol test mode, using your existing motor groups:
 //
-//   drivetrainSysId(leftMotors, rightMotors, controller, {0.08255, 36.0 / 48.0});
+//   drivetrainSysId(leftMotors, rightMotors, controller, 3.25, 36.0 / 48.0);
 //
-// Geometry is wheel diameter in METRES and wheel revolutions per motor revolution.
+// Geometry is wheel diameter in INCHES and wheel revolutions per motor revolution.
 // Configure motor reversal so positive voltage drives BOTH sides forward, set
 // encoder units to degrees, and use matching gearing within each group.
 // Suspend normal driver/autonomous motor commands while this function runs.
@@ -19,7 +19,7 @@
 // The output file is replaced each time this test mode is entered.
 guanid::Result drivetrainSysId(pros::MotorGroup& left, pros::MotorGroup& right,
                                pros::Controller& controller,
-                               const guanid::Geometry& geometry) {
+                               double wheelDiameterIn, double wheelTurnsPerMotorTurn = 1) {
     auto* csv = std::fopen("/usd/drivetrain_sysid.csv", "w");
     if (!csv) return guanid::Result::log_error;
     if (!guanid::writeRecordHeader(csv)) {
@@ -36,9 +36,9 @@ guanid::Result drivetrainSysId(pros::MotorGroup& left, pros::MotorGroup& right,
     config.interval_ms = 20;
 
     guanid::ProsSysIdRoutine routine(config, {
-        guanid::ProsMotorChannel::linear("drive-left", left, geometry),
-        guanid::ProsMotorChannel::linear("drive-right", right, geometry)
-    }, [csv](const guanid::Record& row) { return guanid::writeRecord(csv, row); });
+        guanid::ProsMotorChannel::linearInches("drive-left", left, wheelDiameterIn, wheelTurnsPerMotorTurn),
+        guanid::ProsMotorChannel::linearInches("drive-right", right, wheelDiameterIn, wheelTurnsPerMotorTurn)
+    }, [csv](const guanid::Record& row) { return guanid::writePublicRecord(csv, row); });
 
     // Require L1 to be released before arming the first or any subsequent test.
     bool armed = false;

@@ -9,7 +9,7 @@
 // Never return to normal driver control while a characterization button is held.
 void sysIdTestMode(pros::MotorGroup& left, pros::MotorGroup& right,
                    pros::Controller& controller, bool turn_in_place = false) {
-    const guanid::Geometry geometry{0.08255, 1.0}; // 3.25 inch, direct drive
+    constexpr double wheelDiameterIn = 3.25; // direct drive
     auto* csv = std::fopen("/usd/guanid.csv", "w");
     if (!csv) return;
     if (!guanid::writeRecordHeader(csv)) { std::fclose(csv); return; }
@@ -17,9 +17,9 @@ void sysIdTestMode(pros::MotorGroup& left, pros::MotorGroup& right,
     // WPILib-style defaults: 1 V/s, 7 V, 10 seconds. Reduce for your mechanism.
     config.run_id = pros::millis();
     guanid::ProsSysIdRoutine routine(config, {
-        guanid::ProsMotorChannel::linear("drive-left", left, geometry, turn_in_place ? -1 : 1),
-        guanid::ProsMotorChannel::linear("drive-right", right, geometry)
-    }, [csv](const guanid::Record& row) { return guanid::writeRecord(csv, row); });
+        guanid::ProsMotorChannel::linearInches("drive-left", left, wheelDiameterIn, 1, turn_in_place ? -1 : 1),
+        guanid::ProsMotorChannel::linearInches("drive-right", right, wheelDiameterIn)
+    }, [csv](const guanid::Record& row) { return guanid::writePublicRecord(csv, row); });
 
     while (!pros::competition::is_disabled() &&
            !controller.get_digital(pros::E_CONTROLLER_DIGITAL_B)) {
@@ -56,10 +56,10 @@ struct InCodeCapture {
         samples.push_back(row);
         return true;
     }
-    guanid::Analysis gains(const std::string& motor, guanid::Model model) const {
+    guanid::PublicAnalysis gains(const std::string& motor, guanid::Model model) const {
         guanid::AnalysisConfig settings;
         settings.model = model;
-        return guanid::analyze(samples,motor,settings);
+        return guanid::analyzePublic(samples,motor,settings);
     }
 };
 

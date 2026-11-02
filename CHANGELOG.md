@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Add inch/degree capture factories, CSV export, analysis gains and track-width adapter.
+- Analyzer reads tagged SI/public CSV and defaults to schema-3 inch/degree gains,
+  diagnostics and feedback. `--units si` retains SI output; `--angular-inches`
+  takes effective width in inches. Legacy `--angular` still takes metres.
+
 Versions follow Semantic Versioning. Until 1.0, minor releases may change APIs;
 patch releases preserve existing public interfaces unless fixing incorrect behavior.
 

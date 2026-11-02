@@ -1,5 +1,12 @@
 # guanid
 
+New robot-facing APIs use **inches and degrees**; see [units and compatibility](docs/units.md).
+The examples below that use `Geometry`, `linear`, `angular`, `analyze` and
+`writeRecord` retain their explicitly documented SI compatibility contracts.
+The C++ analyzer now defaults to inch/degree schema-3 output; use `--units si`
+for schema-2 metre/radian output. Capture CSVs with `m`, `rad`, `in`, or `deg`
+are normalized by the analyzer. The legacy Python analyzer remains SI-only.
+
 System identification for VEX V5 / PROS, in pure C++. Configure a routine with
 named PROS motor channels, run four operator-controlled tests, then fit
 feedforward gains in your C++ code or with the bundled C++ analyzer. No subsystem,
