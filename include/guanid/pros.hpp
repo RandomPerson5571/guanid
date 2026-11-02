@@ -1,11 +1,17 @@
 #pragma once
 
 #include "guanid/routine.hpp"
+#include "guanid/sysid.hpp"
 #include "pros/error.h"
 #include "pros/motor_group.hpp"
+#include "pros/motors.hpp"
 #include "pros/rtos.hpp"
 
 namespace guanid {
+
+inline SysIdRoutine::Runtime prosRuntime() {
+    return {[] { return pros::millis(); }, [](std::uint32_t ms) { pros::delay(ms); }};
+}
 
 struct Geometry {
     double wheel_diameter_m;
@@ -20,7 +26,7 @@ struct Geometry {
 };
 
 namespace detail {
-inline bool readSide(pros::MotorGroup& motors, const Geometry& geometry, SideSample& sample) {
+inline bool readSide(pros::AbstractMotor& motors, const Geometry& geometry, SideSample& sample) {
     const auto count = motors.size();
     if (count <= 0 || !geometry.valid()) return false;
     const double metres_per_revolution = 3.14159265358979323846 * geometry.wheel_diameter_m *
@@ -59,6 +65,128 @@ struct ProsMechanism {
     }
 };
 } // namespace detail
+
+// A named channel references an existing PROS Motor or MotorGroup. It owns no
+// hardware. Configure reversal and degree encoder units on the motors first.
+class ProsMotorChannel {
+public:
+    static ProsMotorChannel linear(std::string name, pros::Motor& motor,
+                                   Geometry geometry, int drive_direction = 1) {
+        return {std::move(name), motor, geometry, Units::linear, 0, drive_direction};
+    }
+    static ProsMotorChannel linear(std::string name, pros::MotorGroup& motors,
+                                   Geometry geometry, int drive_direction = 1) {
+        return {std::move(name), motors, geometry, Units::linear, 0, drive_direction};
+    }
+    static ProsMotorChannel angular(std::string name, pros::Motor& motor,
+                                    double output_revolutions_per_motor_revolution = 1,
+                                    double horizontal_offset_radians = 0, int drive_direction = 1) {
+        return {std::move(name), motor, {2, output_revolutions_per_motor_revolution},
+                Units::angular, horizontal_offset_radians, drive_direction};
+    }
+    static ProsMotorChannel angular(std::string name, pros::MotorGroup& motors,
+                                    double output_revolutions_per_motor_revolution = 1,
+                                    double horizontal_offset_radians = 0, int drive_direction = 1) {
+        return {std::move(name), motors, {2, output_revolutions_per_motor_revolution},
+                Units::angular, horizontal_offset_radians, drive_direction};
+    }
+
+private:
+    friend class ProsSysIdRoutine;
+    std::string name_;
+    pros::AbstractMotor* motors_;
+    Geometry geometry_;
+    Units units_;
+    double offset_;
+    int drive_direction_;
+
+    ProsMotorChannel(std::string name, pros::AbstractMotor& motors, Geometry geometry,
+                     Units units, double offset, int drive_direction)
+        : name_(std::move(name)), motors_(&motors), geometry_(geometry), units_(units),
+          offset_(offset), drive_direction_(drive_direction) {}
+
+    bool valid() const {
+        MotorSample name_check;
+        name_check.name = name_;
+        name_check.voltage(0).linearPosition(0).linearVelocity(0);
+        return name_check.valid() && geometry_.valid() && std::isfinite(offset_) &&
+               (drive_direction_ == 1 || drive_direction_ == -1) && motors_->size() > 0;
+    }
+    bool drive(double volts) const {
+        const auto mv = static_cast<std::int32_t>(std::lround(volts * 1000));
+        return motors_->move_voltage(mv * drive_direction_) != PROS_ERR;
+    }
+    bool log(SysIdLog& log) const {
+        SideSample sample;
+        if (!detail::readSide(*motors_, geometry_, sample)) return false;
+        auto& row = log.motor(name_);
+        row.voltage(sample.applied_volts);
+        if (units_ == Units::linear)
+            row.linearPosition(sample.position_m).linearVelocity(sample.velocity_mps);
+        else
+            row.angularPosition(sample.position_m + offset_).angularVelocity(sample.velocity_mps);
+        return true;
+    }
+};
+
+// Only PROS motor channels can command hardware through this interface. Sink,
+// observer and operator permit callbacks still run synchronously on the caller.
+class ProsSysIdRoutine {
+public:
+    using Config = SysIdRoutine::Config;
+    using Direction = guanid::Direction;
+    using Sink = SysIdRoutine::Sink;
+    using Observer = SysIdRoutine::Observer;
+
+    ProsSysIdRoutine(Config config, std::vector<ProsMotorChannel> channels, Sink sink,
+                     Observer observer = {})
+        : routine_(validatedConfig(config, channels), mechanism(channels), prosRuntime(),
+                   std::move(sink), std::move(observer)) {}
+
+    bool running() const { return routine_.running(); }
+    Result result() const { return routine_.result(); }
+    State state() const { return routine_.state(); }
+    bool startQuasistatic(Direction direction) { return routine_.startQuasistatic(direction); }
+    bool startDynamic(Direction direction) { return routine_.startDynamic(direction); }
+    Result update(bool permit = true) { return routine_.update(permit); }
+    Result cancel() { return routine_.cancel(); }
+    template <typename Permit>
+    Result quasistatic(Direction direction, Permit permit) { return routine_.quasistatic(direction, permit); }
+    template <typename Permit>
+    Result dynamic(Direction direction, Permit permit) { return routine_.dynamic(direction, permit); }
+
+private:
+    SysIdRoutine routine_;
+
+    static Config validatedConfig(Config config, const std::vector<ProsMotorChannel>& channels) {
+        bool valid = !channels.empty();
+        for (std::size_t i = 0; i < channels.size(); ++i) {
+            if (!channels[i].valid()) valid = false;
+            for (std::size_t j = 0; j < i; ++j)
+                if (channels[i].name_ == channels[j].name_ || channels[i].motors_ == channels[j].motors_)
+                    valid = false;
+        }
+        // Let the engine perform its normal invalid-config stop on every channel.
+        if (!valid) config.interval_ms = 0;
+        return config;
+    }
+    static SysIdRoutine::Mechanism mechanism(const std::vector<ProsMotorChannel>& channels) {
+        return {
+            [channels](double volts) {
+                bool ok = true;
+                for (const auto& channel : channels)
+                    if (!channel.drive(volts)) ok = false; // Always attempt every motor, including stop.
+                return ok;
+            },
+            [channels](SysIdLog& log) {
+                bool ok = true;
+                for (const auto& channel : channels)
+                    if (!channel.log(log)) ok = false;
+                return ok;
+            }
+        };
+    }
+};
 
 // Blocking, single-test runner. keep_running must be a fast bool() callable
 // checking an operator hold-to-run input and/or competition state. No background

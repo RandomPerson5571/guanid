@@ -1,0 +1,12 @@
+guanid
+Copyright (c) 2026 VexRobotics contributors
+Licensed under the MIT License; see LICENSE.
+
+The characterization workflow and motor models are inspired by WPILib SysId.
+guanid is an independent PROS/VEX implementation, not a WPILib product, port,
+or supported fork. No WPILib or PROS implementation is bundled in its template.
+PROS, VEX, WPILib, and other names belong to their respective owners.
+
+Robot projects supply PROS and any other dependencies under their own licenses.
+The optional legacy Python analyzer requires NumPy (and matplotlib for PNGs);
+those packages are not bundled. The primary C++ library/analyzer needs neither.

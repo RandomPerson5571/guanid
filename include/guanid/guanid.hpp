@@ -9,7 +9,7 @@ namespace guanid {
 
 enum class Test { quasistatic, dynamic };
 enum class Direction { forward, reverse };
-enum class Result { completed, cancelled, invalid_config, hardware_error, log_error };
+enum class Result { completed, cancelled, invalid_config, hardware_error, log_error, running };
 enum class State { idle, quasistatic_forward, quasistatic_reverse, dynamic_forward, dynamic_reverse };
 
 inline State testState(Test test, Direction direction) {
