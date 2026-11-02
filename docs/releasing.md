@@ -1,9 +1,10 @@
 # Release process
 
 `VERSION` is the library's single version source; CMake and archive metadata read
-it. guanid is maintained under `libraries/guanid` in the VexRobotics monorepo.
-Release tags use `guanid-vVERSION` to avoid collisions with app releases. No
-separate GitHub repository or public depot is required for local installation.
+it. guanid is maintained in `RandomPerson5571/guanid` and pinned as the
+`libraries/guanid` submodule in VexRobotics. Run release commands from the
+guanid repository root. Release tags use `guanid-vVERSION`; a public depot
+is not required for local installation.
 
 1. Review pending API/numerical changes and choose a Semantic Versioning version.
    Update VERSION, CHANGELOG, and versioned installation examples together.

@@ -1,0 +1,101 @@
+name: guanid CI and release
+on:
+  push:
+    branches: ["**"]
+    tags: ["guanid-v*"]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  host:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [g++, clang++]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Host tests with ASan and UBSan
+        env:
+          CXX: ${{ matrix.compiler }}
+        run: python3 scripts/test_host.py
+      - name: Package regression tests
+        run: python3 -m unittest discover -s tests/packaging -v
+      - name: CMake build, install, and consumer
+        env:
+          CXX: ${{ matrix.compiler }}
+        run: python3 scripts/test_cmake.py
+      - name: Build release artifacts
+        env:
+          RELEASE_REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 scripts/package.py --out-dir dist --repository "$RELEASE_REPOSITORY"
+          python3 scripts/check_package.py "dist/guanid@$(cat VERSION).zip"
+      - uses: actions/upload-artifact@v4
+        if: matrix.compiler == 'g++'
+        with:
+          name: guanid-packages
+          path: dist/*
+          if-no-files-found: error
+  pros:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        kernel: ["4.2.1", "4.2.2"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install ARM toolchain
+        run: |
+          archive=arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi.tar.xz
+          curl -fL --retry 3 "https://developer.arm.com/-/media/Files/downloads/gnu/15.2.rel1/binrel/$archive" -o "$RUNNER_TEMP/$archive"
+          tar -xf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi/bin" >> "$GITHUB_PATH"
+      - name: Install PROS CLI
+        run: pip install pros-cli==3.5.6 'setuptools<81'
+      - name: Test manifest with real Conductor
+        run: python3 -m unittest discover -s tests/packaging -v
+      - name: Package and link a real PROS consumer
+        env:
+          KERNEL_VERSION: ${{ matrix.kernel }}
+        run: |
+          python3 scripts/package.py --out-dir dist
+          python3 scripts/test_template.py "$RUNNER_TEMP/guanid-consumer" "dist/guanid@$(cat VERSION).zip" --kernel-version "$KERNEL_VERSION"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: guanid-pros-${{ matrix.kernel }}
+          path: |
+            ${{ runner.temp }}/guanid-consumer/project.pros
+            ${{ runner.temp }}/guanid-consumer/bin/*.bin
+          if-no-files-found: warn
+  draft-release:
+    if: startsWith(github.ref, 'refs/tags/guanid-v')
+    needs: [host, pros]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify tag and package
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 -c 'import os,pathlib; assert os.environ["RELEASE_TAG"] == "guanid-v" + pathlib.Path("VERSION").read_text().strip(), "Tag does not match VERSION"'
+          python3 scripts/package.py --out-dir dist --repository "$RELEASE_REPOSITORY"
+          python3 scripts/check_package.py "dist/guanid@$(cat VERSION).zip"
+      - name: Create draft release for review
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" dist/* --verify-tag --draft --title "guanid $(cat VERSION)" --notes-file CHANGELOG.md

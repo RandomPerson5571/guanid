@@ -1,0 +1,3 @@
+# Store all files byte-verbatim (no CRLF conversion on checkout/commit).
+# The PROS toolchain is sensitive to line endings in Makefiles and sources.
+* -text

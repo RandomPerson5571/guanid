@@ -1,7 +1,8 @@
 # Contributing
 
-Work in `libraries/guanid` when using the VexRobotics monorepo. Avoid changing
-unrelated firmware or submodule pointers. Use conventional commit messages.
+Work from the guanid repository root, or `libraries/guanid` when using the
+VexRobotics submodule checkout. Commit and push library changes in this repository
+before updating the monorepo submodule pointer. Use conventional commit messages.
 C++ APIs target C++17 without exceptions as a requirement; the PROS adapter must
 also compile using the installed kernel's toolchain. Keep new algorithms portable,
 keep callbacks synchronous, and preserve stop/error behavior. The public PROS
