@@ -9,6 +9,9 @@ inline constexpr double radiansPerDegree = 3.14159265358979323846 / 180;
 inline double siPerPublicUnit(Units dimension) {
     return dimension == Units::linear ? metersPerInch : radiansPerDegree;
 }
+// Public velocities are numerically larger than their SI equivalents, so the
+// corresponding voltage-per-velocity and voltage-per-acceleration gains shrink.
+// kS and kG are already volts and need no scaling.
 inline Gains gainsInPublicUnits(Gains gains, Units dimension) {
     const double scale = siPerPublicUnit(dimension);
     gains.kV *= scale;
@@ -20,6 +23,9 @@ struct PublicAnalysis {
     Analysis si; // Explicit compatibility access to the original SI diagnostics.
     const char* positionUnit() const { return si.units == Units::linear ? "in" : "deg"; }
     Gains gains() const { return gainsInPublicUnits(si.gains, si.units); }
+    // Convert only the arm's angle back to radians for cos(). Converted kV/kA
+    // already expect public velocity/acceleration; scaling those inputs again
+    // would apply the unit conversion twice. Check si.ok before using the result.
     double calculate(double position, double velocity, double acceleration) const {
         const auto g = gains();
         return g.calculate(si.model, si.units == Units::angular ? position * radiansPerDegree : position,

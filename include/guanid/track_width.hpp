@@ -16,6 +16,7 @@ struct TrackWidthTrial {
     double rotation_rad = 0;
 
     double effectiveTrackWidthM() const {
+        // Checking if the inputs are finite and positive to avoid invalid calculations.
         if (!std::isfinite(left_distance_m) || left_distance_m <= 0 ||
             !std::isfinite(right_distance_m) || right_distance_m <= 0 ||
             !std::isfinite(rotation_rad) || rotation_rad == 0)
@@ -27,6 +28,7 @@ struct TrackWidthTrial {
     }
 };
 
+// Result of repeated trials. Invalid trials leave all accumulated statistics unchanged.
 struct TrackWidthResult {
     bool valid = false;
     std::size_t trials = 0;
@@ -41,14 +43,18 @@ struct TrackWidthResult {
 // or PROS dependency. Invalid trials leave all accumulated statistics unchanged.
 class TrackWidthCalibration {
 public:
+    /// @brief Add the results of anew trial to the calibration.
+    /// @param trial 
+    /// @return boolean indicating whether the trial was valid and added successfully.
     bool add(const TrackWidthTrial& trial) {
         const double width = trial.effectiveTrackWidthM();
-        if (!std::isfinite(width) || count_ == std::numeric_limits<std::size_t>::max()) return false;
+        if (!std::isfinite(width) || count_ == std::numeric_limits<std::size_t>::max()) return false; // Avoid overflow in count_ and checks if the width is valid.
         const auto count = count_ + 1;
         const double delta = width - mean_;
         const double mean = mean_ + delta/static_cast<double>(count);
         const double m2 = m2_ + delta*(width-mean);
-        if (!std::isfinite(mean) || !std::isfinite(m2)) return false;
+        if (!std::isfinite(mean) || !std::isfinite(m2)) return false; // Check if the new mean and m2 are finite.
+        // Update internal state
         mean_ = mean;
         m2_ = m2;
         min_ = count_ ? std::min(min_,width) : width;
@@ -78,7 +84,7 @@ public:
     void clear() { count_ = 0; mean_ = m2_ = min_ = max_ = 0; }
 
 private:
-    std::size_t count_ = 0;
+    std::size_t count_ = 0; // Number of valid trials added.
     double mean_ = 0, m2_ = 0, min_ = 0, max_ = 0;
 };
 

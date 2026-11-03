@@ -9,6 +9,9 @@
 
 namespace guanid {
 
+// All thresholds here use SI, even when analyzePublic converts the final gains.
+// Windows count samples; trims and gap limits use seconds. Derivative windows
+// must be odd and at least three samples to fit a local quadratic velocity curve.
 struct AnalysisConfig {
     Model model = Model::simple;
     std::size_t median_window = 5, derivative_window = 5;
@@ -22,6 +25,8 @@ struct AnalysisConfig {
             std::isfinite(trim_end_s) && trim_end_s >= 0 && std::isfinite(max_gap_s) && max_gap_s > 0;
     }
 };
+// Voltage-output model: kS/kG are volts, kV multiplies m/s or rad/s, and
+// kA multiplies m/s^2 or rad/s^2. Arm position is radians from horizontal.
 struct Gains {
     double kS = 0, kV = 0, kA = 0, kG = 0;
     double calculate(Model model, double position, double velocity, double acceleration) const {
@@ -110,6 +115,9 @@ inline Fit fit(const std::vector<Diagnostic>& points, Model model, int direction
         out.error = "Unexcited or rank-deficient data; collect ramps, transients and both directions"; return out;
     }
     if (b[0] <= 0) { out.error = "Nonpositive voltage-to-acceleration gain; check sensor signs and timing"; return out; }
+    // Regression fits a = b0*V + b1*v + b2*sign(v) + b3*gravity.
+    // Rearrange into the voltage model, rather than fitting noisy acceleration
+    // as an independent regressor. Simple models omit the gravity column.
     out.gains = {-b[2]/b[0], -b[1]/b[0], 1/b[0], model == Model::simple ? 0 : -b[3]/b[0]};
     if (!std::isfinite(out.gains.kS) || !std::isfinite(out.gains.kV) ||
         !std::isfinite(out.gains.kA) || !std::isfinite(out.gains.kG)) {
@@ -144,6 +152,8 @@ inline Analysis analyze(const std::vector<Record>& records, const std::string& m
     out.model = config.model;
     auto fail = [&](const std::string& error) { out.error = error; return out; };
     if (!config.valid()) return fail("Invalid analysis configuration");
+    // Never filter or differentiate across independent tests. A repeated test
+    // needs a new run ID; otherwise its reset timestamp would break ordering.
     using Key = std::tuple<std::uint32_t,Test,Direction>;
     std::map<Key,std::vector<Record>> runs;
     bool first = true;
@@ -178,6 +188,9 @@ inline Analysis analyze(const std::vector<Record>& records, const std::string& m
         for (std::size_t i = half+radius; i + half+radius < run.size(); ++i) {
             if (run[i].time_s-run.front().time_s < config.trim_start_s ||
                 run.back().time_s-run[i].time_s < config.trim_end_s) continue;
+            // Reject the entire support window if it crosses rest, a direction
+            // change, or a sampling gap. Checking raw samples also prevents the
+            // median filter from concealing an invalid differentiation interval.
             bool valid = std::abs(velocity[i]) > config.min_velocity;
             for (std::size_t j = i-half-radius; j <= i+half+radius; ++j) {
                 if (std::abs(run[j].motor.velocity) <= config.min_velocity ||
@@ -191,6 +204,8 @@ inline Analysis analyze(const std::vector<Record>& records, const std::string& m
                 const double t = run[j].time_s-run[i].time_s;
                 x.push_back({1,t,t*t,0}); y.push_back(velocity[j]);
             }
+            // Center time on this sample: in v(t)=c0+c1*t+c2*t^2, c1 is
+            // acceleration at the center, including for irregular sample times.
             std::array<double,4> polynomial{};
             double excitation;
             if (!detail::leastSquares(x,y,3,polynomial,excitation)) continue;
@@ -199,6 +214,8 @@ inline Analysis analyze(const std::vector<Record>& records, const std::string& m
             if ((velocity[i] > 0) != (run[i].direction == Direction::forward)) ++mismatches;
         }
     }
+    // Coverage counts retained moving samples, not merely tests present in CSV.
+    // A captured profile entirely removed by trimming cannot identify the model.
     if (coverage.size() < 4) {
         if (config.require_four_tests) return fail("Missing usable tests; capture quasistatic/dynamic in both directions");
         out.warnings.push_back("Incomplete four-test coverage");

@@ -1,5 +1,8 @@
 # guanid
 
+New here? Read the [Getting started guide](docs/getting-started.md) for setup and a first run.
+See the [code structure and flow diagrams](docs/code-map.md) for a visual overview.
+
 New robot-facing APIs use **inches and degrees**; see [units and compatibility](docs/units.md).
 The examples below that use `Geometry`, `linear`, `angular`, `analyze` and
 `writeRecord` retain their explicitly documented SI compatibility contracts.

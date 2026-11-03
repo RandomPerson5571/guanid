@@ -27,6 +27,9 @@ struct Geometry {
 };
 
 namespace detail {
+// Convert each motor's degree encoder and RPM into output-side SI motion.
+// Group values are arithmetic means, so matching gearing/signs are required;
+// averaging can hide a stalled or reversed motor within an otherwise moving group.
 inline bool readSide(pros::AbstractMotor& motors, const Geometry& geometry, SideSample& sample) {
     const auto count = motors.size();
     if (count <= 0 || !geometry.valid()) return false;
@@ -81,6 +84,8 @@ public:
     static ProsMotorChannel angularDegrees(std::string name, Motor& motors,
                                           double outputTurnsPerMotorTurn = 1,
                                           double horizontalOffsetDeg = 0, int driveDirection = 1) {
+        // Factories accept public units, but records and the portable engine
+        // remain SI. Use writePublicRecord when the CSV should contain degrees.
         return angular(std::move(name), motors, outputTurnsPerMotorTurn,
                        horizontalOffsetDeg * radiansPerDegree, driveDirection);
     }
@@ -126,10 +131,15 @@ private:
         return name_check.valid() && geometry_.valid() && std::isfinite(offset_) &&
                (drive_direction_ == 1 || drive_direction_ == -1) && motors_->size() > 0;
     }
+    // drive_direction_ changes only the voltage request (useful for spin tests).
+    // Telemetry signs still come from the motor's configured encoder/reversal.
     bool drive(double volts) const {
         const auto mv = static_cast<std::int32_t>(std::lround(volts * 1000));
         return motors_->move_voltage(mv * drive_direction_) != PROS_ERR;
     }
+    // Angular factories use a synthetic diameter of 2, making circumference
+    // 2*pi: readSide's distance calculation then yields radians and radians/s.
+    // offset_ sets the arm's horizontal reference without resetting its encoder.
     bool log(SysIdLog& log) const {
         SideSample sample;
         if (!detail::readSide(*motors_, geometry_, sample)) return false;
@@ -184,6 +194,10 @@ private:
         if (!valid) config.interval_ms = 0;
         return config;
     }
+    // Copy channel descriptors into the callbacks so the constructor's vector
+    // can expire. Their motor pointers are borrowed: motors must outlive the
+    // routine. Distinct groups sharing physical ports must be avoided by callers;
+    // validation only detects repeated motor objects and channel names.
     static SysIdRoutine::Mechanism mechanism(const std::vector<ProsMotorChannel>& channels) {
         return {
             [channels](double volts) {

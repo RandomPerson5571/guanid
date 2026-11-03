@@ -73,12 +73,19 @@ inline bool writeRecord(std::FILE* file, const Record& row) {
 
 // All callbacks run on the calling task. Drive receives VOLTS, not millivolts.
 // Callbacks must be fast; drive(0) must not throw. This object owns no motors/tasks.
+// Portable, synchronous capture engine. Mechanism callbacks provide hardware I/O;
+// Runtime supplies the clock, and Sink decides where each channel record goes.
+// A routine runs one profile/direction at a time; the caller selects all four
+// tests separately and keeps every captured object's dependencies alive.
 class SysIdRoutine {
 public:
     using Direction = guanid::Direction;
     struct Config : guanid::Config {
         Config() { duration_ms = 10000; ramp_volts_per_second = 1; step_volts = 7; max_volts = 12; }
     };
+    // drive receives volts, including zero for cleanup. log fills one snapshot
+    // with stable channel names and SI measurements. Both report failure as false;
+    // neither callback may block indefinitely because cancellation is cooperative.
     struct Mechanism {
         std::function<bool(double)> drive;
         std::function<bool(SysIdLog&)> log;
@@ -117,9 +124,13 @@ public:
         // Each ordinary return disarms the unwinding guard.
         auto done = [&](Result result) { guard.returned = true; return result; };
         if (!permit) return done(finish(Result::cancelled));
+        // Unsigned subtraction supports a millisecond clock wrapping during a run.
+        // Config restricts durations so elapsed-time comparisons remain meaningful.
         const auto elapsed = runtime_.nowMs() - start_;
         if (elapsed >= config_.duration_ms) return done(finish(Result::completed));
         if (elapsed < next_) return done(result_);
+        // Read before applying the next command so each record describes the
+        // voltage already active during measurement, including initial zero output.
         SysIdLog log;
         if (!mechanism_.log(log) || !log.valid()) return done(finish(Result::hardware_error));
         if (runtime_.nowMs() - start_ >= config_.duration_ms) return done(finish(Result::completed));
@@ -138,6 +149,8 @@ public:
             return done(finish(Result::hardware_error));
         const auto after = runtime_.nowMs() - start_;
         if (after >= config_.duration_ms) return done(finish(Result::completed));
+        // Skip missed deadlines rather than emitting a burst of stale samples.
+        // Derivatives later use recorded elapsed time, not an assumed fixed period.
         next_ = std::min(config_.duration_ms, (after / config_.interval_ms + 1) * config_.interval_ms);
         return done(result_);
     }
@@ -160,6 +173,8 @@ private:
     std::uint32_t start_ = 0, next_ = 0, run_id_ = 0, sequence_ = 0;
     std::vector<MotorSample> channels_;
 
+    // All ordinary stop paths converge here. Even invalid setup attempts zero
+    // output; inability to stop takes precedence over the original exit reason.
     Result finish(Result result) {
         running_ = false;
         const bool stopped = mechanism_.drive && mechanism_.drive(0);
@@ -168,6 +183,8 @@ private:
         return result_;
     }
     bool start(Test test, Direction direction) {
+        // A start request never silently replaces an active test. Cancel it and
+        // require another explicit start, preventing accidental profile changes.
         if (running_) { finish(Result::cancelled); return false; }
         if (!config_.valid() || !mechanism_.drive || !mechanism_.log || !runtime_.nowMs ||
             !runtime_.sleepMs || !sink_ ||
