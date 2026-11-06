@@ -22,5 +22,13 @@ of PROS.
 
 Host tests/simulation verify numerical and lifecycle behavior. A consumer link
 check verifies installation, real headers, and linker compatibility, not physical
-robot behavior. No real-robot validation session is currently bundled. Read
-hardware-validation.md before running a powered test.
+robot behavior. Three maintainer-reported Drive Lab physical characterization
+results are bundled
+in [drive-lab-results.md](drive-lab-results.md). They document gains and RMSEs,
+not a complete stop/disable validation of the new controller interface. Read
+[hardware-validation.md](hardware-validation.md) before running a powered test.
+
+Windows desktop builds are checked with MSVC on Windows Server 2022 using CMake.
+The Windows job runs all portable/stubbed-PROS tests, CLI/unit conversion tests,
+and an installed CMake consumer. Real PROS firmware builds run on Ubuntu;
+Windows CI does not establish Windows PROS toolchain compatibility.

@@ -1,4 +1,4 @@
-# Robot-facing inches and degrees
+# Robot-facing output units
 
 Use `ProsMotorChannel::linearInches(name, motors, wheelDiameterIn,
 wheelTurnsPerMotorTurn, driveDirection)` or
@@ -7,16 +7,19 @@ driveDirection)`. The optional direction defaults to +1. Motor encoder units
 must still be degrees. The existing factories and `Geometry` remain SI APIs.
 
 Use `writeRecordHeader(file)` once and `writePublicRecord(file, row)` for
-inch/degree CSV. Runtime `Record` objects remain SI and can still be passed to
+inch/degree CSV by default. Pass an `OutputUnits` third argument to select
+meters/inches and radians/degrees independently. Runtime `Record` objects remain SI and can still be passed to
 the original in-memory analyzer. `writeRecord` remains an SI CSV writer.
 
 For in-memory results include `guanid/public_units.hpp` and call
-`analyzePublic(records, name, configSI)`. Check `result.si.ok` before using
-`result.gains()` (inches/degrees), `result.positionUnit()`, or
+`analyzePublic(records, name, configSI, outputUnits)`. The optional `OutputUnits`
+argument defaults to `{LinearUnit::inches, AngularUnit::degrees}`. Use
+`LinearUnit::meters` and/or `AngularUnit::radians` for SI output on either axis. Check `result.si.ok` before using
+`result.gains()` (selected units), `result.positionUnit()`, or
 `result.calculate(position, velocity, acceleration)` (volts). Its `.si` member
 explicitly exposes the SI fit, warnings and diagnostic records. Configuration
 thresholds for this adapter retain SI units, as the `configSI` argument states.
-Arm positions for `calculate` are degrees from horizontal; gravity is converted
+Arm positions for `calculate` use the selected angular unit from horizontal; gravity is converted
 to radians internally. Do not call the SI `Gains::calculate` arm overload with
 degree positions. `kS`/`kG` remain volts; `kV`/`kA` multiply the SI gains by
 0.0254 for distance or pi/180 for heading.
@@ -51,5 +54,8 @@ and independently measured continuous headings in degrees. `result()` returns
 `trackWidthIn`, `sampleStddevIn`, `minWidthIn`, `maxWidthIn`, validity and trial
 count. Do not infer that rotation from wheel encoders and an assumed width.
 
-The submodule source is changed locally. A release, upload and physical
-characterization are separate actions; no existing release ZIP is replaced.
+The unit-contract changes ship in 0.2.0. Published versions are immutable;
+`--units si` remains available when consuming the older SI output contract.
+
+For automatic lateral-to-angular kS/kV/kA conversion and configurable driver
+tests, see [drivetrain tuning](drivetrain.md).

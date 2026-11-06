@@ -15,10 +15,10 @@ def main():
         flags += ['-fsanitize=address,undefined', '-fno-sanitize-recover=all']
     with tempfile.TemporaryDirectory(prefix='guanid-host-') as directory:
         work = Path(directory)
-        for name in ('core', 'routine', 'sysid', 'analysis', 'track_width', 'pros'):
+        for name in ('core', 'routine', 'sysid', 'analysis', 'track_width', 'pros', 'drivetrain'):
             binary = work / name
             includes = ['-I'+str(ROOT/'include')]
-            if name == 'pros':
+            if name in ('pros', 'drivetrain'):
                 includes.append('-I'+str(ROOT/'tests/stubs'))
             subprocess.run([*compiler, *flags, *includes, str(ROOT/'tests'/f'{name}.cpp'), '-o', str(binary)], check=True)
             subprocess.run([str(binary)], check=True)
@@ -28,7 +28,7 @@ def main():
             subprocess.run([str(work/'capture')],stdout=stream,check=True)
         subprocess.run([str(work/'analyze'),str(work/'capture.csv'),'--out',str(work/'gains.json'),
                         '--plot-dir',str(work/'plots')],check=True)
-    print('Six host suites and C++ capture/analysis passed')
+    print('Seven host suites and C++ capture/analysis passed')
 
 
 if __name__ == '__main__':

@@ -16,7 +16,7 @@ Run from this directory:
 python3 scripts/test_host.py
 python3 -m unittest discover -s tests/packaging -v
 python3 scripts/package.py --out-dir dist
-python3 scripts/check_package.py dist/guanid@0.1.0.zip
+python3 scripts/check_package.py dist/guanid@0.2.0.zip
 ```
 
 A C++ compiler and Python 3.9+ are required for these maintainer commands. Python

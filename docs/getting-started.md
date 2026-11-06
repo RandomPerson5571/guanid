@@ -9,9 +9,10 @@ It does not tune a LemLib PID controller.
 
 ## Install
 
-Copy `include/guanid/` into your PROS project's `include/` directory.
-No source files or LemLib dependency are needed. Alternatively, follow the
-[PROS template installation guide](installation.md).
+Install the versioned ZIP or register the stable Conductor depot using the
+[installation guide](installation.md). Alternatively, copy `include/guanid/`
+into your PROS project's `include/` directory. No source files or LemLib dependency
+are needed.
 
 Build robot firmware with `pros make` inside your robot project.
 
@@ -33,12 +34,16 @@ Build robot firmware with `pros make` inside your robot project.
 
    Include `guanid/pros.hpp` in the calling file. Replace `3.25` with your wheel
    diameter in inches and `36.0 / 48.0` with wheel turns per motor turn.
-4. Insert an SD card. Review the example's voltage and duration settings for
+4. Insert an SD card if you want a CSV; fitting can also run in memory.
+   Review the example's voltage and duration settings for
    your robot, clear the travel path, and suspend other motor commands.
-5. Hold **L1** and press **Up** for a slow forward ramp, **Down** for a slow
-   reverse ramp, **Right** for a forward voltage step, or **Left** for a reverse
-   voltage step. Collect all four tests, repositioning between them.
-   Release L1 to stop; release it between tests to re-arm. **B** exits.
+5. Follow the controller prompt and hold **L1** for each profile: ramp forward,
+   ramp reverse, step forward, then step reverse. Release L1 between profiles.
+   Releasing early cancels the current attempt; hold L1 again to retry it.
+   Hold **X** with L1 released and use left-Y/right-X sticks to reposition.
+   Repositioning defaults to 3 V, bounded by both capture voltage caps; lower
+   `config.reposition_max_volts` further or set it to zero to disable manual motion.
+   **B** exits.
 
 The example writes `/usd/drivetrain_sysid.csv`. Entering the test mode again
 replaces that file, so save each capture before starting another session.
@@ -53,6 +58,8 @@ cmake --build /tmp/guanid-build
 /tmp/guanid-build/guanid_analyze /path/to/drivetrain_sysid.csv \
   --out /tmp/drivetrain-gains.json --plot-dir /tmp/guanid-plots
 ```
+
+On Windows, follow the [MSVC or CMake commands](installation.md#windows-cmake-build-from-the-source-zip).
 
 The JSON contains separate left/right fits and warnings. Inspect the plots and
 warnings before using the gains. Default analyzer output uses inches and degrees;

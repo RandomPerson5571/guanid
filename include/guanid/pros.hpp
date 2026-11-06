@@ -161,10 +161,11 @@ public:
     using Direction = guanid::Direction;
     using Sink = SysIdRoutine::Sink;
     using Observer = SysIdRoutine::Observer;
+    using CommandObserver = std::function<void(double)>;
 
     ProsSysIdRoutine(Config config, std::vector<ProsMotorChannel> channels, Sink sink,
-                     Observer observer = {})
-        : routine_(validatedConfig(config, channels), mechanism(channels), prosRuntime(),
+                     Observer observer = {}, CommandObserver commandObserver = {})
+        : routine_(validatedConfig(config, channels), mechanism(channels, std::move(commandObserver)), prosRuntime(),
                    std::move(sink), std::move(observer)) {}
 
     bool running() const { return routine_.running(); }
@@ -198,12 +199,14 @@ private:
     // can expire. Their motor pointers are borrowed: motors must outlive the
     // routine. Distinct groups sharing physical ports must be avoided by callers;
     // validation only detects repeated motor objects and channel names.
-    static SysIdRoutine::Mechanism mechanism(const std::vector<ProsMotorChannel>& channels) {
+    static SysIdRoutine::Mechanism mechanism(const std::vector<ProsMotorChannel>& channels,
+                                           CommandObserver commandObserver) {
         return {
-            [channels](double volts) {
+            [channels, commandObserver](double volts) {
                 bool ok = true;
                 for (const auto& channel : channels)
                     if (!channel.drive(volts)) ok = false; // Always attempt every motor, including stop.
+                if (commandObserver) commandObserver(volts);
                 return ok;
             },
             [channels](SysIdLog& log) {

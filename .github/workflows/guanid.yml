@@ -1,7 +1,7 @@
 name: guanid CI and release
 on:
   push:
-    branches: ["**"]
+    branches-ignore: ["depot"]
     tags: ["guanid-v*"]
   pull_request:
   workflow_dispatch:
@@ -41,6 +41,18 @@ jobs:
           name: guanid-packages
           path: dist/*
           if-no-files-found: error
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: MSVC CMake build, all host tests, install, and consumer
+        run: python scripts/test_cmake.py
+      - name: Package regression tests
+        run: python -m unittest discover -s tests/packaging -v
   pros:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -77,25 +89,60 @@ jobs:
             ${{ runner.temp }}/guanid-consumer/project.pros
             ${{ runner.temp }}/guanid-consumer/bin/*.bin
           if-no-files-found: warn
-  draft-release:
+  release:
     if: startsWith(github.ref, 'refs/tags/guanid-v')
-    needs: [host, pros]
+    needs: [host, windows, pros]
     runs-on: ubuntu-24.04
+    concurrency:
+      group: guanid-publish
+      cancel-in-progress: false
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Verify tag and package
+      - uses: actions/download-artifact@v4
+        with:
+          name: guanid-packages
+          path: dist
+      - name: Verify tag and tested artifacts
         env:
           RELEASE_TAG: ${{ github.ref_name }}
-          RELEASE_REPOSITORY: ${{ github.repository }}
         run: |
           python3 -c 'import os,pathlib; assert os.environ["RELEASE_TAG"] == "guanid-v" + pathlib.Path("VERSION").read_text().strip(), "Tag does not match VERSION"'
-          python3 scripts/package.py --out-dir dist --repository "$RELEASE_REPOSITORY"
+          (cd dist && sha256sum --check SHA256SUMS)
           python3 scripts/check_package.py "dist/guanid@$(cat VERSION).zip"
-      - name: Create draft release for review
+      - name: Publish versioned release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: gh release create "$RELEASE_TAG" dist/* --verify-tag --draft --title "guanid $(cat VERSION)" --notes-file CHANGELOG.md
+        run: |
+          if gh release view "$RELEASE_TAG" --json isDraft > "$RUNNER_TEMP/release.json"; then
+            python3 -c 'import json,sys; assert not json.load(open(sys.argv[1]))["isDraft"], "Existing release is still a draft"' "$RUNNER_TEMP/release.json"
+            gh release download "$RELEASE_TAG" --pattern SHA256SUMS --dir "$RUNNER_TEMP/published"
+            cmp dist/SHA256SUMS "$RUNNER_TEMP/published/SHA256SUMS"
+          else
+            gh release create "$RELEASE_TAG" dist/* --verify-tag --latest --title "guanid $(cat VERSION)" --notes-file CHANGELOG.md
+          fi
+      - name: Update stable Conductor depot after publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          depot_dir="$RUNNER_TEMP/guanid-depot"
+          # The worktree shares checkout's authenticated remote, but has its own files.
+          if git ls-remote --exit-code origin refs/heads/depot; then
+            git fetch origin depot
+            git worktree add --detach "$depot_dir" FETCH_HEAD
+            python3 scripts/update_depot.py dist/guanid-depot.json --existing "$depot_dir/guanid-depot.json" --out "$depot_dir/guanid-depot.json"
+          else
+            git worktree add --detach "$depot_dir" HEAD
+            git -C "$depot_dir" switch --orphan depot
+            python3 scripts/update_depot.py dist/guanid-depot.json --out "$depot_dir/guanid-depot.json"
+          fi
+          git -C "$depot_dir" add guanid-depot.json
+          if ! git -C "$depot_dir" diff --cached --quiet; then
+            git -C "$depot_dir" commit -m "chore: publish guanid $(cat VERSION) depot entry"
+            git -C "$depot_dir" push origin HEAD:refs/heads/depot
+          fi

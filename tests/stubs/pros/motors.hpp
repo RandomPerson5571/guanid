@@ -4,7 +4,7 @@
 #include <vector>
 
 namespace pros {
-enum class MotorUnits { degrees, rotations };
+enum class MotorUnits { degrees, rotations, invalid };
 // Minimal test double for the PROS calls used by the adapter. Real-header
 // compatibility is checked separately by the PROS consumer build.
 class AbstractMotor {
@@ -19,6 +19,7 @@ public:
     bool fail_drive = false, fail_stop = false;
     std::int8_t size() const { return static_cast<std::int8_t>(readings.size()); }
     MotorUnits get_encoder_units(std::uint8_t i) const { return readings.at(i).units; }
+    std::int32_t set_encoder_units(MotorUnits units, std::uint8_t i) { readings.at(i).units = units; return 1; }
     double get_position(std::uint8_t i) const { return readings.at(i).degrees; }
     double get_actual_velocity(std::uint8_t i) const { return readings.at(i).rpm; }
     std::int32_t get_voltage(std::uint8_t i) const { return readings.at(i).millivolts; }

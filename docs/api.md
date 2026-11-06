@@ -7,6 +7,8 @@ and `angularDegrees`. Existing SI APIs retain their semantics.
 
 Public headers are under `include/guanid/`. All APIs are in namespace `guanid`.
 
+- `drivetrain.hpp`: `DrivetrainConfig`, `DrivetrainTuner`, fit and limit estimates.
+- `pros_drivetrain.hpp`: `runDrivetrainTuning` controller loop and PROS drivetrain adapter.
 - `pros.hpp`: `ProsSysIdRoutine`, `ProsMotorChannel`, `prosRuntime`, `Geometry`, and the legacy two-sided `run` adapter.
 - `sysid.hpp`: portable `SysIdRoutine`, `SysIdLog`, `MotorSample`, `Record`,
   named CSV writers, simple/elevator/arm feedforward and track-width helpers.
@@ -66,7 +68,8 @@ predicted voltage and residual. Filter/trim configuration uses SI units/seconds.
 Gravity/friction cannot be separated in a one-direction elevator fit; the joint
 fit needs both directions.
 
-The desktop analyzer writes JSON schema version 2, with model, settings, and a
+The desktop analyzer defaults to inch/degree JSON schema version 3 (`--units si`
+selects SI schema version 2), with model, settings, and a
 channels object keyed by name. Each channel has position_unit, joint fit,
 forward/reverse fits, warnings, and optional velocity_feedback/position_feedback.
 Undefined JSON metrics are null. With `--plot-dir`, each channel also gets an SVG
@@ -78,3 +81,22 @@ TrackWidthCalibration returns an explicit result instead of printing. valid mean
 at least one trial was accepted; track_width_m is the arithmetic mean and
 sample_stddev_m reports trial spread. This is a calibration measurement, not a
 proof that width is constant across surfaces or loads.
+
+## Drivetrain session and output units
+
+See [drivetrain tuning](drivetrain.md) for `DrivetrainConfig`, `DrivetrainTuner`,
+`runDrivetrainTuning`, `prosDrivetrainMechanism`, `DrivetrainAnalysis`,
+`estimateDriveLimits` and `lateralToAngular`. `OutputUnits` selects linear and
+angular result units independently; `gainsInUnits` converts SI gains.
+`analyzePublic` accepts optional output units after the analysis config, and
+`writePublicRecord` accepts them after the record. Existing defaults stay inches/degrees.
+
+## Manual drivetrain repositioning
+
+`DrivetrainConfig::reposition_max_volts` defaults to 3 V; allowed values are
+finite numbers in [0,12]. Zero disables manual motion. In `runDrivetrainTuning`,
+X plus the sticks repositions only when L1 is released and no profile is running.
+Its effective voltage cap is the minimum of this setting and both capture
+profiles' `max_volts`. `limit_volts` configures feedforward limit estimates and
+is not an actuator safety cap. Operator/competition interlocks and cleanup also
+apply to manual movement.

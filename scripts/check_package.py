@@ -25,7 +25,8 @@ def check(path):
         require(set(manifest['system_files']) == set(names) - {'template.pros'}, 'Manifest/payload mismatch')
         require(len(manifest['system_files']) == len(set(manifest['system_files'])), 'Duplicate manifest files')
         required = {'include/guanid/' + name for name in (
-            'guanid.hpp','routine.hpp','sysid.hpp','pros.hpp','analysis.hpp','track_width.hpp')}
+            'guanid.hpp','routine.hpp','sysid.hpp','pros.hpp','analysis.hpp','track_width.hpp',
+            'public_units.hpp','drivetrain.hpp','pros_drivetrain.hpp')}
         required |= {'share/guanid/' + name for name in ('LICENSE','NOTICE','README.md','VERSION','CHANGELOG.md')}
         require(required.issubset(names), 'Missing public headers or release documents')
         require(package.read('share/guanid/VERSION').decode().strip() == manifest['version'], 'Version mismatch')

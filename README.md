@@ -3,7 +3,8 @@
 New here? Read the [Getting started guide](docs/getting-started.md) for setup and a first run.
 See the [code structure and flow diagrams](docs/code-map.md) for a visual overview.
 
-New robot-facing APIs use **inches and degrees**; see [units and compatibility](docs/units.md).
+Robot-facing APIs default to **inches and degrees**, with meters/radians also selectable;
+see [units and compatibility](docs/units.md).
 The examples below that use `Geometry`, `linear`, `angular`, `analyze` and
 `writeRecord` retain their explicitly documented SI compatibility contracts.
 The C++ analyzer now defaults to inch/degree schema-3 output; use `--units si`
@@ -28,16 +29,19 @@ standalone analyzer is C++17 and uses only the standard library. guanid CSV is
 
 ## PROS motor routine
 
-Install `guanid@0.1.0.zip` from a release (or build it locally with `make template`):
+Download [guanid@0.2.0.zip](https://github.com/RandomPerson5571/guanid/releases/download/guanid-v0.2.0/guanid%400.2.0.zip)
+and verify it against [SHA256SUMS](https://github.com/RandomPerson5571/guanid/releases/download/guanid-v0.2.0/SHA256SUMS)
+(or build it locally with `make template`):
 
 ```sh
 # Run inside your existing V5 PROS 4.2.1+ project:
-pros conduct fetch /absolute/path/to/guanid@0.1.0.zip
-pros conduct apply guanid@0.1.0
+pros conduct fetch /absolute/path/to/guanid@0.2.0.zip
+pros conduct apply guanid@0.2.0
 pros make
 ```
 
-See [installation and upgrades](docs/installation.md),
+For depot-based installs and explicit Windows analyzer commands, see
+[installation and upgrades](docs/installation.md),
 [compatibility](docs/compatibility.md), and [release packaging](docs/releasing.md).
 The template is header-only and installs only `include/guanid/` and
 `share/guanid/`; it adds no application entry points or dependency archives.
@@ -83,8 +87,10 @@ const bool closed = std::fclose(csv) == 0;
 
 For a drivetrain-only example using existing PROS motor groups, see
 [`examples/drivetrain_sysid.cpp`](examples/drivetrain_sysid.cpp). It binds all four
-tests to controller buttons and writes left/right telemetry to an SD-card CSV.
-It requires no LemLib objects or dependencies.
+tests to L1, supports X + sticks for repositioning, fits results in memory, and
+optionally writes SD-card CSV. See [configurable drivetrain tuning](docs/drivetrain.md)
+for the built-in driver mode, custom test controls, output units, angular-gain
+conversion and drive-limit estimates. It requires no LemLib objects or dependencies.
 
 `examples/sysid_pros_example.cpp` contains a complete periodic button-binding
 example: hold L1, press Up/Down for quasistatic forward/reverse, Right/Left for
@@ -385,6 +391,7 @@ References: [WPILib routines](https://docs.wpilib.org/en/stable/docs/software/ad
 - [Installation and upgrades](docs/installation.md)
 - [Compatibility and validation limits](docs/compatibility.md)
 - [Release candidate validation record](docs/validation.md)
+- [Reported physical Drive Lab results](docs/drive-lab-results.md)
 - [Hardware validation protocol](docs/hardware-validation.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Changelog](CHANGELOG.md), [contributing](CONTRIBUTING.md), and [releasing](docs/releasing.md)

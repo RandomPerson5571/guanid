@@ -1,7 +1,10 @@
 # Physical validation protocol
 
-No powered hardware sessions are included in this release candidate. Do not infer
-safe robot behavior from the host tests, example gains, or consumer compilation.
+Three reported powered Drive Lab characterization sessions are included in
+[drive-lab-results.md](drive-lab-results.md), with their provenance and limitations.
+They provide fitted-gain evidence, but no measured stop latency or independent
+validation of the new controller mode. Do not infer safe robot behavior from
+fit metrics, host tests, example gains, or consumer compilation.
 
 1. Support gravity-loaded mechanisms and provide independent disable access.
    Clear the entire motion path, including coast-down, and verify travel limits.
