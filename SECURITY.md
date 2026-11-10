@@ -3,7 +3,9 @@
 Do not use guanid as a safety controller. Motor communication failures, task
 termination, power loss, blocked callbacks, and gravity loads can prevent a
 software stop from bringing a mechanism to a safe state. Use independent robot
-disable controls and the protocol in docs/hardware-validation.md.
+disable controls and follow the [physical validation protocol](docs/hardware-validation.md).
+For a stop or disable report, include the control mode, trigger, last observed
+voltage and any measured delay.
 
 For ordinary defects, report the version, kernel/toolchain, configuration, minimal
 reproduction and expected/actual result through the hosting repository's issue

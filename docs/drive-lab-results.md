@@ -34,7 +34,8 @@ Wheel-space inch-based fit results, as displayed on the Brain:
 - **Right:** RMSE = 0.1863 V; kS = 0.35632 V;
   kV = 0.18578 V s/in; kA = 0.02849 V s²/in.
 
-These gains use inches; the previous capture above uses meters.
+These gains use inches. The [unit guide](units.md) gives the conversions needed
+to compare them with the SI fit from the first capture.
 
 ## 2026-11-06 - third capture
 
@@ -44,6 +45,8 @@ Wheel-space inch-based fit results, as displayed on the Brain:
   kV = 0.18816 V s/in; kA = 0.02617 V s²/in.
 - **Right:** RMSE = 0.1569 V; kS = 0.45342 V;
   kV = 0.18892 V s/in; kA = 0.02523 V s²/in.
+
+The log records no observed motion peaks or fit R² for this capture.
 
 Reported 12 V feedforward estimates:
 

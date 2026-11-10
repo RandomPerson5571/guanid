@@ -20,8 +20,9 @@ Build robot firmware with `pros make` inside your robot project.
 
 1. Copy [`examples/drivetrain_sysid.cpp`](../examples/drivetrain_sysid.cpp)
    into your robot project's `src/` directory.
-2. Use your existing left/right motor groups and controller. Set motor encoders
-   to degrees and motor reversal so both sides drive forward with positive voltage.
+2. Use separate left and right motor groups and your existing controller.
+   Configure reversal so positive voltage drives both sides forward. The driver
+   mode temporarily sets each motor's encoder units to degrees.
 3. Declare the example function before calling it from your dedicated test mode:
 
    ```cpp
@@ -32,8 +33,10 @@ Build robot firmware with `pros make` inside your robot project.
    drivetrainSysId(leftMotors, rightMotors, controller, 3.25, 36.0 / 48.0);
    ```
 
-   Include `guanid/pros.hpp` in the calling file. Replace `3.25` with your wheel
-   diameter in inches and `36.0 / 48.0` with wheel turns per motor turn.
+   Include `guanid/pros_drivetrain.hpp` in the calling file. Replace `3.25` with your wheel
+   diameter in inches and `36.0 / 48.0` with wheel turns per motor turn. Replace
+   the example's 13.5-inch effective track width with your calibrated width, or
+   set `config.track_width_m = 0` to skip turn estimates.
 4. Insert an SD card if you want a CSV; fitting can also run in memory.
    Review the example's voltage and duration settings for
    your robot, clear the travel path, and suspend other motor commands.
@@ -45,8 +48,15 @@ Build robot firmware with `pros make` inside your robot project.
    `config.reposition_max_volts` further or set it to zero to disable manual motion.
    **B** exits.
 
-The example writes `/usd/drivetrain_sysid.csv`. Entering the test mode again
-replaces that file, so save each capture before starting another session.
+On completion, the example prints lateral gains and any available angular and
+drive-limit estimates to the console. Its return value reports capture status.
+Use `runDrivetrainTuning` directly to inspect fit success and per-side diagnostics.
+
+With a writable SD card, the example exports inch-based records to
+`/usd/drivetrain_sysid.csv`. A new session replaces that file. Save the raw CSV
+and note the run IDs of any retries or interrupted tests before starting over.
+The in-memory fit discards partial attempts. To reproduce it on your computer,
+copy the header and rows from only the four completed attempts to a separate CSV.
 
 ## Analyze the capture
 

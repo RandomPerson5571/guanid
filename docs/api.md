@@ -1,102 +1,53 @@
-# API and output reference
+# GuanID C++ API reference
 
-Preferred robot-facing APIs and output contracts are documented in [units.md](units.md).
-`public_units.hpp` adds `analyzePublic`, `writePublicRecord`, reciprocal-gain
-conversion and `TrackWidthCalibrationInches`; `pros.hpp` adds `linearInches`
-and `angularDegrees`. Existing SI APIs retain their semantics.
+This reference covers the public C++ interface in GuanID 0.2.0. Symbols live
+in namespace `guanid` and headers are included as `<guanid/header.hpp>`.
+`guanid::detail` contains implementation helpers. Portable headers require
+C++17. The two PROS headers also require the robot project's PROS toolchain.
 
-Public headers are under `include/guanid/`. All APIs are in namespace `guanid`.
+## C++ reference by topic
 
-- `drivetrain.hpp`: `DrivetrainConfig`, `DrivetrainTuner`, fit and limit estimates.
-- `pros_drivetrain.hpp`: `runDrivetrainTuning` controller loop and PROS drivetrain adapter.
-- `pros.hpp`: `ProsSysIdRoutine`, `ProsMotorChannel`, `prosRuntime`, `Geometry`, and the legacy two-sided `run` adapter.
-- `sysid.hpp`: portable `SysIdRoutine`, `SysIdLog`, `MotorSample`, `Record`,
-  named CSV writers, simple/elevator/arm feedforward and track-width helpers.
-- `analysis.hpp`: `analyze`, `AnalysisConfig`, `Gains`, `Fit`, `Analysis`,
-  drivetrain channel derivation and optional feedback suggestions.
-- `track_width.hpp`: `TrackWidthTrial`, `TrackWidthCalibration`, `TrackWidthResult`.
-- `routine.hpp`: legacy portable `runRoutine` mechanism contract.
-- `guanid.hpp`: legacy configuration, state, samples, CSV and feedforward.
+- [Shared types and legacy capture](api/core.md) covers `guanid.hpp` and `routine.hpp`.
+- [Named capture and feedforward](api/capture.md) covers `sysid.hpp`.
+- [Analysis and output units](api/analysis.md) covers `analysis.hpp` and `public_units.hpp`.
+- [Track-width calibration](api/track-width.md) covers `track_width.hpp` and its inch adapter in `public_units.hpp`.
+- [PROS motor channels and routines](api/pros.md) covers `pros.hpp`.
+- [Drivetrain sessions and limits](api/drivetrain.md) covers `drivetrain.hpp` and `pros_drivetrain.hpp`.
 
-The main README contains complete usage, units and model equations. Constructors
-copy configuration, channels and callbacks; referenced motors/captures must outlive
-the routine. A routine is noncopyable and should only be called by its owning
-task. Do not concurrently start/update/cancel it from another task; signal the
-owner's permit predicate instead. There is no internal synchronization.
+## Units and runtime conventions
 
-`ProsSysIdRoutine(config, channels, sink, observer = {})` accepts a vector or
-brace-enclosed list of `ProsMotorChannel` values. It does not inherit from the
-portable callback engine and exposes no drive/log callback constructor.
+Capture records, fit settings, and geometry use metres or radians, with time in
+seconds unless a field is marked `_ms`.
 
-Create channels with `ProsMotorChannel::linear(name, motorOrGroup, geometry,
-drive_direction = 1)` or `ProsMotorChannel::angular(name, motorOrGroup,
-output_rev_per_motor_rev = 1, horizontal_offset_rad = 0, drive_direction = 1)`.
-Only `pros::Motor&` and `pros::MotorGroup&` are accepted. Both factories read degree
-encoders and measured voltage internally; group telemetry is averaged. A direction
-of `-1` reverses only commanded voltage, preserving measured telemetry signs.
-Channel names must be unique and nonempty. Invalid channel settings and repeated
-motor objects invalidate the configuration; no nonzero command is sent. All
-channels receive a stop attempt even if one fails. Do not use overlapping groups.
+PROS motor output takes millivolts. The
+named capture engine requests volts and the PROS adapters perform the conversion.
+The public-unit adapters expose inch/degree output by default. See the
+[unit guide](units.md) for examples.
 
-`startQuasistatic`/`startDynamic` return bool. `update`, blocking `quasistatic`/
-`dynamic`, and `cancel` return Result. Results are `running`, `completed`,
-`cancelled`, `invalid_config`, `hardware_error`, or `log_error`. A failed cleanup
-stop reports hardware_error even if another failure triggered cleanup. Observers
-receive the active test state and idle on finish. Callbacks must be fast and
-observer callbacks must not throw.
+Capture callbacks run synchronously on the calling task. Keep them fast, avoid
+reentering the routine, and ensure stop and observer callbacks do not throw.
+Keep borrowed motors and callback dependencies alive for the routine's lifetime.
+Give the calling task exclusive control of the motors during capture. Use the
+[hardware validation protocol](hardware-validation.md) before powered testing.
 
-## Captures and analysis
+## Desktop analyzer output
 
-`writeRecordHeader(FILE*)`/`writeRecord(FILE*,Record)` return bool. Check buffered
-flush/close too. Named CSV is one channel per row:
+The standalone `guanid_analyze` executable reads the named CSV schema and the
+legacy left/right SI schema. It normalizes input to SI, then converts the output.
+`--units in-deg` is the default and writes JSON schema version 3. `--units si`
+writes schema version 2. Use `--help` for the argument list and see the
+[unit guide](units.md) for width and velocity threshold arguments.
 
-`run_id,test,direction,time_s,motor,units,voltage,position,velocity`
+JSON contains `schema_version`, `model`, `settings`, and a `channels` object
+keyed by channel name. Each channel identifies its position, velocity,
+acceleration, and gain units, reports its effective `min_velocity`, and
+and includes the joint `fit`, `forward` and `reverse` fits, and `warnings`.
 
-Fields are unquoted. Channel names allow letters, digits, hyphen, underscore and
-period. Test is quasistatic/dynamic, direction forward/reverse, position units
-m/rad, velocity units m/s or rad/s. Arm angles use radians from horizontal. Each
-run must have unique identity and increasing time per channel. Clock zero is the
-start of that test. No CSV or console output is automatic unless your sink writes
-it. The example uses `/usd/guanid.csv`; in-memory sinks need no file.
+Requested feedback estimates appear in `velocity_feedback` and
+`position_feedback`. Undefined fit metrics appear as JSON `null`.
 
-`analyze(records,name,settings)` returns an Analysis with `ok`/`error`. On success,
-read `gains`, `samples`, `voltage_rmse`, `acceleration_r_squared`,
-`voltage_r_squared`, `excitation_ratio`, `forward`, `reverse`, `warnings`, and
-`diagnostics`. Inspect ok before using gains. Undefined R² is NaN. Diagnostic
-samples contain the original Record, filtered velocity, estimated acceleration,
-predicted voltage and residual. Filter/trim configuration uses SI units/seconds.
-Gravity/friction cannot be separated in a one-direction elevator fit; the joint
-fit needs both directions.
+With `--plot-dir`, the analyzer writes an SVG and processed diagnostic CSV per
+channel using retained samples. Keep the raw CSV to inspect discarded samples.
 
-The desktop analyzer defaults to inch/degree JSON schema version 3 (`--units si`
-selects SI schema version 2), with model, settings, and a
-channels object keyed by name. Each channel has position_unit, joint fit,
-forward/reverse fits, warnings, and optional velocity_feedback/position_feedback.
-Undefined JSON metrics are null. With `--plot-dir`, each channel also gets an SVG
-and processed diagnostic CSV. Exit status is 0 on success, 2 on invalid input or
-an output failure. See `guanid_analyze --help` for command options. Preserve raw
-captures: processed plots intentionally contain only retained samples.
-
-TrackWidthCalibration returns an explicit result instead of printing. valid means
-at least one trial was accepted; track_width_m is the arithmetic mean and
-sample_stddev_m reports trial spread. This is a calibration measurement, not a
-proof that width is constant across surfaces or loads.
-
-## Drivetrain session and output units
-
-See [drivetrain tuning](drivetrain.md) for `DrivetrainConfig`, `DrivetrainTuner`,
-`runDrivetrainTuning`, `prosDrivetrainMechanism`, `DrivetrainAnalysis`,
-`estimateDriveLimits` and `lateralToAngular`. `OutputUnits` selects linear and
-angular result units independently; `gainsInUnits` converts SI gains.
-`analyzePublic` accepts optional output units after the analysis config, and
-`writePublicRecord` accepts them after the record. Existing defaults stay inches/degrees.
-
-## Manual drivetrain repositioning
-
-`DrivetrainConfig::reposition_max_volts` defaults to 3 V; allowed values are
-finite numbers in [0,12]. Zero disables manual motion. In `runDrivetrainTuning`,
-X plus the sticks repositions only when L1 is released and no profile is running.
-Its effective voltage cap is the minimum of this setting and both capture
-profiles' `max_volts`. `limit_volts` configures feedforward limit estimates and
-is not an actuator safety cap. Operator/competition interlocks and cleanup also
-apply to manual movement.
+Exit status is 0 on success or `--help`. Invalid input, a failed joint fit for
+a selected channel, or an output error returns 2 with a message on stderr.

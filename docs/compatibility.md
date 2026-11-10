@@ -16,9 +16,10 @@ analyzer uses `std::filesystem`; it is not included by the robot public headers.
 The library is header-only. No ARM archive or startup code is installed. The
 consumer compiles the used routines; no hidden task or motor object is created.
 PROS motor telemetry is sequential, and measured values may have sensor latency.
-Motor channels accept only PROS Motor/MotorGroup objects and require degree
-encoder units and matching output gearing. Desktop analysis remains independent
-of PROS.
+Named PROS channels borrow a Motor or MotorGroup. Set their encoders to degrees
+and match output gearing within each group. The built-in drivetrain driver mode
+sets and restores encoder units around its session. Desktop analysis uses only
+portable headers.
 
 Host tests/simulation verify numerical and lifecycle behavior. A consumer link
 check verifies installation, real headers, and linker compatibility, not physical

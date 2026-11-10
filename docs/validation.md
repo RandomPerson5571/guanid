@@ -1,5 +1,14 @@
 # Validation records
 
+## Reproduce the checks
+
+From a guanid source checkout or extracted source ZIP, run `make test` for
+the host and packaging suites, `python3 scripts/test_cmake.py` for CTest
+and the installed CMake consumer, and `make check-template` for the template
+manifest. Follow the [consumer check](installation.md#build-a-template-locally)
+to repeat the real PROS compile and link checks. Record hardware behavior
+separately using the [physical validation protocol](hardware-validation.md).
+
 ## 0.1.0 candidate — November 1, 2026
 
 Historical local validation for the 0.1.0 source (not a claim about 0.2.0).

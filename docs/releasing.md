@@ -8,8 +8,9 @@ after all required checks pass; it is not a draft-only workflow.
    Use a new minor version for breaking pre-1.0 API or output-contract changes.
    Never reuse a published version or tag.
 2. Run `python3 scripts/test_host.py`, package regression tests, and
-   `python3 scripts/test_cmake.py`. Run `scripts/test_template.py` on a disposable
-   PROS consumer using each supported kernel; never upload that consumer.
+   `python3 scripts/test_cmake.py`. Build the template and run the disposable
+   consumer check for PROS 4.2.1 and 4.2.2. Use a fresh directory for each kernel.
+   See [local packaging and consumer checks](installation.md#build-a-template-locally).
 3. Review the final source, including new headers/tests and hardware evidence.
    Commit it and push a matching `guanid-vVERSION` tag. The tagged workflow must
    pass GCC/Clang ASan/UBSan, Windows MSVC CMake/CTest/install/consumer tests,

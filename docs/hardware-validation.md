@@ -10,8 +10,11 @@ fit metrics, host tests, example gains, or consumer compilation.
    Clear the entire motion path, including coast-down, and verify travel limits.
 2. Check cartridge configuration, encoder units, wheel/spool diameter, gearing,
    and sensor/voltage signs at low voltage. Check each motor before averaging.
-3. Suspend other motor-command tasks. Put hold-to-run, competition disable, travel
-   and temperature checks in your permit predicate. Confirm release stops output.
+3. Suspend other motor-command tasks. With the built-in driver mode, verify
+   L1 release during capture and X release during repositioning. Also verify B,
+   controller disconnect, and competition disable. Put travel and temperature
+   interlocks in the optional permit callback. With custom controls, include
+   operator enable and competition state in your own permit check.
 4. Start below the example voltage/time defaults. Collect quasistatic and dynamic
    forward/reverse independently, repositioning and stopping between tests. Use a
    charged battery and repeat under consistent load/surface conditions.

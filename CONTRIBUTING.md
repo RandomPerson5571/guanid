@@ -13,10 +13,9 @@ task, a scheduler dependency, or automatic motor movement during initialization.
 Run from this directory:
 
 ```sh
-python3 scripts/test_host.py
-python3 -m unittest discover -s tests/packaging -v
-python3 scripts/package.py --out-dir dist
-python3 scripts/check_package.py dist/guanid@0.2.0.zip
+make test
+python3 scripts/test_cmake.py
+make check-template
 ```
 
 A C++ compiler and Python 3.9+ are required for these maintainer commands. Python
@@ -27,7 +26,8 @@ also supported; enable `GUANID_BUILD_EXAMPLES=ON` for the CLI integration check.
 The optional legacy Python tests require `tools/requirements.txt`.
 
 With PROS CLI and ARM tools installed, run the disposable consumer check described
-in docs/installation.md. Never run tests by uploading automatically to a robot.
+in [installation](docs/installation.md#build-a-template-locally). Use a
+disposable project and keep this check to compilation and linking.
 Document units, input validation, failure behavior, and the limits of evidence.
 New behavior should have focused numerical/lifecycle tests. Include build results
 and any actual hardware evidence in a pull request; never label simulation as a

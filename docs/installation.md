@@ -1,4 +1,4 @@
-# Install and remove
+# Installation and upgrades
 
 Install the official PROS CLI/toolchain and create or open a V5 PROS 4 project.
 Download [guanid@0.2.0.zip](https://github.com/RandomPerson5571/guanid/releases/download/guanid-v0.2.0/guanid%400.2.0.zip)
@@ -21,9 +21,10 @@ pros conduct apply guanid@0.2.0
 pros make
 ```
 
-Include `guanid/pros.hpp` for the named motor-channel runner and
-`guanid/analysis.hpp` for in-code fitting. Your robot code owns all motors and
-sensors. See ../README.md and the examples for explicit test invocations.
+Include `guanid/pros_drivetrain.hpp` for the drivetrain driver mode, or
+`guanid/pros.hpp` for named motor channels and `guanid/analysis.hpp` for in-code
+fitting. Your robot code supplies the motors and controller.
+Follow [getting started](getting-started.md) for a first drivetrain session.
 
 The template owns only `include/guanid/` and `share/guanid/`. Documentation,
 examples, the license and desktop analyzer source live under `share/guanid/`.
@@ -112,7 +113,8 @@ would contain only the newest snapshot and is not the stable depot.
 ## Desktop CMake installation
 
 For a host application, CMake can install the portable headers, analyzer and
-package configuration separately from the PROS template:
+package configuration separately from the PROS template. Run these commands
+from the source checkout or extracted source ZIP:
 
 ```sh
 cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/your/prefix

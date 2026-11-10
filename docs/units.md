@@ -8,8 +8,14 @@ must still be degrees. The existing factories and `Geometry` remain SI APIs.
 
 Use `writeRecordHeader(file)` once and `writePublicRecord(file, row)` for
 inch/degree CSV by default. Pass an `OutputUnits` third argument to select
-meters/inches and radians/degrees independently. Runtime `Record` objects remain SI and can still be passed to
-the original in-memory analyzer. `writeRecord` remains an SI CSV writer.
+meters/inches and radians/degrees independently. Both CSV writers receive SI
+`Record` objects. Use `writeRecord` for SI output. For example, this exports
+wheel data in inches and angle data in radians:
+
+```cpp
+const guanid::OutputUnits units{guanid::LinearUnit::inches, guanid::AngularUnit::radians};
+const bool written = guanid::writePublicRecord(file, row, units);
+```
 
 For in-memory results include `guanid/public_units.hpp` and call
 `analyzePublic(records, name, configSI, outputUnits)`. The optional `OutputUnits`
@@ -21,8 +27,9 @@ explicitly exposes the SI fit, warnings and diagnostic records. Configuration
 thresholds for this adapter retain SI units, as the `configSI` argument states.
 Arm positions for `calculate` use the selected angular unit from horizontal; gravity is converted
 to radians internally. Do not call the SI `Gains::calculate` arm overload with
-degree positions. `kS`/`kG` remain volts; `kV`/`kA` multiply the SI gains by
-0.0254 for distance or pi/180 for heading.
+degree positions. `kS` and `kG` stay in volts. Converting SI `kV` and `kA` to
+inch gains multiplies them by 0.0254. Converting to degree gains multiplies them
+by π/180. The standalone CLI offers the two presets `in-deg` and `si`.
 
 The CLI accepts named CSV unit tokens `m`, `rad`, `in`, and `deg`; every record
 is normalized before derivatives, pairing and fitting. Incompatible dimensions

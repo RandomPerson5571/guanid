@@ -33,9 +33,10 @@ if (result.capture == guanid::Result::completed && result.analysis.ok) {
 
 Use this inside a dedicated opcontrol mode. Both groups must drive forward with
 positive voltage, with consistent gearing within a group. Other motor-writing
-tasks must yield ownership until it returns. The mode changes every motor's
-encoder units to degrees and restores the previous individual units on exit.
-It creates no background tasks and requires no LemLib or SD card.
+tasks must yield ownership until it returns. The mode sets each motor's
+encoder units to degrees and attempts to restore the previous units on exit. Setup, restoration, or a detected stop failure
+reports `hardware_error`. The mode runs synchronously in the calling task and
+can fit the data without an SD card.
 
 The controller displays the next profile. Release L1 before the first test, then
 hold L1 for each profile: ramp forward, ramp reverse, step forward, step reverse.
@@ -43,16 +44,17 @@ Release between profiles and reposition as needed. Releasing during a profile
 stops it and discards that attempt from the in-memory fit; hold again to retry.
 Hold X with L1 released to drive using left-Y/right-X arcade for repositioning.
 Manual voltage defaults to 3 V, bounded by both capture profiles' `max_volts`.
-Set `reposition_max_volts` in [0,12] to choose a lower limit, or zero to disable it.
+Set `reposition_max_volts` in [0,12] to choose a cap, or zero to disable motion.
+The example above caps repositioning at 3 V and its ramp at 6 V.
 B, disconnect, disable, autonomous, or a false optional `permit` callback stops
 outputs and exits. All four completed profiles trigger the in-memory analysis.
 Capture completion and fit validity are separate: inspect `analysis.ok` and
 `analysis.left.si.error` / `analysis.right.si.error` if fitting fails.
 
-Each profile has its own `SysIdRoutine::Config`: duration, sampling interval,
-voltage ceiling, ramp slope and step voltage are configurable. Commands clamp
-to that profile's `max_volts`. `quasistatic.run_id` seeds the session's attempt
-IDs; `dynamic.run_id` is unused by the session. `analysis` controls SI filtering
+The ramp and step each have a `SysIdRoutine::Config`. Defaults are a
+3-second ramp at 2 V/s and a 2-second step at 7 V. Both sample every 20 ms
+and default to a 12 V cap. Commands clamp to the active profile's `max_volts`.
+`quasistatic.run_id` seeds the attempt IDs for both ramp and step. `analysis` controls SI filtering
 and fit thresholds (simple model only). `max_records` bounds the record buffer,
 defaulting to 4000; increase it for longer captures or faster sampling. Exhausting
 it stops with `log_error`, rather than fitting truncated data. `limit_volts`
@@ -63,11 +65,11 @@ capture, or handle an optional logging failure yourself and return true to keep
 the in-memory fit. The sink sees cancelled attempts as they happen; the session
 removes them only from its own record buffer. The example
 [`drivetrain_sysid.cpp`](../examples/drivetrain_sysid.cpp) shows optional SD
-logging that continues without a card. `runDrivetrainTuning` also accepts a
-command-voltage observer after the permit callback. It observes capture voltage
-requests, including zero, but manual arcade commands are not SysId commands.
-A request is observed even if a motor rejects it; measured applied voltage in
-each record remains the source for fitting.
+logging that continues without a card. For offline fitting, filter the exported
+CSV to the completed run IDs. `runDrivetrainTuning` accepts a command-voltage
+observer after the permit callback. It receives capture requests and zero-voltage
+writes through the adapter, including cleanup after manual movement. The manual
+arcade voltages bypass the observer. Measured voltage in each record drives the fit.
 
 ## Custom controls
 
@@ -109,10 +111,12 @@ or `degrees`. These apply independently to result gains, drive limits and
 `PublicAnalysis::calculate`. Raw records, analysis thresholds, geometry and
 `.si` diagnostics remain SI. `left` and `right` retain fit quality/warnings and
 direction-specific SI fits. `lateral` is the arithmetic mean of their gains.
-`limits` uses the slower side for straight velocity and acceleration. Braking
-is the estimated initial deceleration under full reverse voltage at that common
-maximum speed, not a constant stopping cap. Angular speed assumes an in-place
-spin and the supplied width. Check `limits.valid` and `limits.angular_valid`.
+`limits` takes the lower of the two side estimates for straight speed and,
+separately, for near-rest acceleration. Braking is the smaller estimated initial
+deceleration when full reverse voltage is applied at that common maximum speed.
+Angular speed divides the sum of the two side speed estimates by the supplied
+width. These estimates assume the specified voltage is available under load.
+Check `limits.valid` and `limits.angular_valid` separately from fit validity.
 
 When `track_width_m > 0`, angular gains are estimated automatically:
 

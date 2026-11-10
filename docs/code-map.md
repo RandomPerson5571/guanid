@@ -10,6 +10,11 @@ Arrows in the structure diagram mean “uses.” The library is header-only;
 flowchart TD
     Robot["Robot application / examples"] --> Pros["pros.hpp<br/>ProsSysIdRoutine + ProsMotorChannel"]
     Pros --> Engine["sysid.hpp<br/>SysIdRoutine, Record, CSV, feedforward"]
+    Robot --> Mode["pros_drivetrain.hpp<br/>Controller mode + motor groups"]
+    Mode --> Pros
+    Mode --> Tuner["drivetrain.hpp<br/>DrivetrainTuner"]
+    Tuner --> Engine
+    Tuner --> Units
     Pros --> Hardware["Existing PROS motors + clock"]
     Engine --> Base["guanid.hpp<br/>Config, test profiles, states, results"]
     App["Desktop or in-code analysis"] --> Analysis["analysis.hpp<br/>Filtering, fitting, diagnostics"]
@@ -56,6 +61,16 @@ The periodic API leaves update scheduling to the caller. Telemetry is recorded
 before the next command; the first sample is taken at zero commanded voltage.
 An explicit `cancel()` also enters the stop path. If stopping fails, the result
 is `hardware_error`. Run forward and reverse tests for both profiles separately.
+
+## Drivetrain session
+
+The PROS driver mode checks its operator and competition interlocks, temporarily
+sets degree encoders, and hands each hold-to-run profile to `DrivetrainTuner`.
+A cancelled profile rolls back to its record checkpoint and can be retried.
+An external CSV sink has already seen those records. After four completed
+profiles, the session fits each side, averages the side gains, and calculates
+drive-limit and optional angular estimates. See [drivetrain tuning](drivetrain.md)
+for custom controls and result fields.
 
 ## Analysis flow
 

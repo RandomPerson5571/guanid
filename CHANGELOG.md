@@ -38,5 +38,6 @@ patch releases preserve existing public interfaces unless fixing incorrect behav
 - Header-only PROS Conductor template, reproducible release archives/checksums,
   package ownership checks, consumer build CI, and installation/release guides.
 
-See docs/drive-lab-results.md for reported physical characterization and
-docs/hardware-validation.md for additional robot-specific validation.
+See [reported Drive Lab results](docs/drive-lab-results.md) for the recorded
+physical characterization and the [hardware validation protocol](docs/hardware-validation.md)
+for robot-specific checks.

@@ -1,20 +1,16 @@
 # guanid
 
-New here? Read the [Getting started guide](docs/getting-started.md) for setup and a first run.
-See the [code structure and flow diagrams](docs/code-map.md) for a visual overview.
+guanid characterizes VEX V5 mechanisms on PROS and fits feedforward gains from
+four operator-controlled voltage tests. Fit in firmware or on a desktop with the
+bundled C++ analyzer. For a tank drivetrain, start with the
+[getting started guide](docs/getting-started.md) and the built-in
+[drivetrain test mode](docs/drivetrain.md). For a single mechanism, use the named
+motor-channel routine below.
 
-Robot-facing APIs default to **inches and degrees**, with meters/radians also selectable;
-see [units and compatibility](docs/units.md).
-The examples below that use `Geometry`, `linear`, `angular`, `analyze` and
-`writeRecord` retain their explicitly documented SI compatibility contracts.
-The C++ analyzer now defaults to inch/degree schema-3 output; use `--units si`
-for schema-2 metre/radian output. Capture CSVs with `m`, `rad`, `in`, or `deg`
-are normalized by the analyzer. The legacy Python analyzer remains SI-only.
-
-System identification for VEX V5 / PROS, in pure C++. Configure a routine with
-named PROS motor channels, run four operator-controlled tests, then fit
-feedforward gains in your C++ code or with the bundled C++ analyzer. No subsystem,
-command scheduler, WPILib, Python, or background task is required.
+The drivetrain example and the desktop analyzer default to inches and degrees.
+`Record`, `Geometry`, `analyze`, and `writeRecord` use SI. See the
+[unit guide](docs/units.md) for inch/degree factories, CSV export, gain conversion,
+and the analyzer's `--units si` mode.
 
 Models:
 
@@ -118,10 +114,14 @@ Defaults apply to `ProsSysIdRoutine::Config`: `duration_ms=10000`, `interval_ms=
 `ramp_volts_per_second=1`, `step_volts=7`, `max_volts=12`. Adjust these to your
 mechanism before testing. Voltages are clamped by `max_volts`, which must be at
 most 12. A quasistatic test ramps in the selected direction; dynamic applies a
-step. The first sample records zero voltage before applying the test command.
+step. The first sample is taken after commanding zero and before applying the
+test voltage.
 Telemetry is read before the next command; timestamps are actual elapsed time.
 Missed deadlines are skipped, and unsigned elapsed time handles clock rollover.
-An optional final constructor argument receives the test state and `State::idle`.
+The optional fourth constructor argument receives the active test state and
+`State::idle`. The optional fifth receives each signed voltage request in the
+routine's coordinate system, including zero-voltage requests. The observer runs
+after the motor writes have been attempted. See the [API reference](docs/api.md).
 
 ## Other mechanisms and units
 
@@ -245,9 +245,10 @@ c++ -std=c++17 -I include tools/analyze.cpp -o /tmp/guanid-analyze
 /tmp/guanid-analyze /tmp/guanid-demo.csv --out /tmp/gains.json
 ```
 
-The simulation runs the actual callbacks, all four routines, and in-memory
-analysis. Its expected gains are approximately kS=0.25, kV=2.1, kA=0.45 in radian
-units. These are simulation values, not gains to copy onto a robot.
+The callback simulation runs all four tests and checks the fit in memory.
+It models a flywheel with radian-based gains of approximately `kS=0.25`,
+`kV=2.1`, and `kA=0.45`. Pass `--units si` to compare the analyzer output
+directly against those simulation values.
 
 Copy `/usd/guanid.csv` from the SD card and pass one or several captures to the
 analyzer. Use `--model simple|elevator|arm`, `--motor NAME`, `--min-velocity`,
@@ -262,13 +263,14 @@ measured/model voltage, and residual versus time for each run. These are in-samp
 fit diagnostics, not independent simulations. Inspect the original capture too:
 trimmed samples are not plotted. No plotting libraries or network are used.
 
-The named CSV schema is:
+The named CSV schema is
 `run_id,test,direction,time_s,motor,units,voltage,position,velocity`.
-Units are `m` or `rad`; derivatives use seconds. Write one header per file. The
-C++ reader also accepts the earlier left/right drivetrain CSV schema, with or
-without run_id. Repeated tests in a file must have distinct run IDs and strictly
-increasing timestamps per channel/run. Do not mix unrelated console output into
-CSV; this format uses simple unquoted fields and restricted motor names.
+The C++ reader accepts `m`, `rad`, `in`, and `deg`, with velocity in the same unit
+per second. It also reads the earlier left/right SI drivetrain schema, with or
+without a run ID. Write one header per file and keep console output separate.
+Each attempt needs a distinct run ID and strictly increasing timestamps per
+channel. Keep the raw capture and exclude any cancelled attempts from the copy
+you fit offline.
 
 ## Drivetrain sides, combined and angular
 
@@ -282,20 +284,24 @@ guanid_analyze capture.csv --combine drive-left drive-right drive \
 
 For angular identification, run a **separate set of four turn-in-place tests**:
 positive command applies negative left voltage and positive right voltage. Keep
-logging both wheel channels in metres. Supply the calibrated effective track width:
+logging both wheel channels in linear units. Supply the calibrated effective
+track width in inches:
 
 ```sh
-guanid_analyze turns.csv --angular drive-left drive-right turn 0.30 \
+guanid_analyze turns.csv --angular-inches drive-left drive-right turn 13.5 \
   --motor turn --out angular-gains.json
 ```
 
-The in-code equivalent is `deriveDrivetrain(records,left,right,name,output,track)`.
-Omit track (or use zero) for combined linear data. Paired samples must share exact
-run/test/direction/timestamps and linear units. Linear mode averages both sides;
-angular mode computes position/velocity `(right-left)/track` and differential
-voltage `(right-left)/2`. Thus angular gains output differential volts per rad/s;
-apply `left=-V`, `right=V` for a pure turn. This wheel-derived angular model assumes
-an appropriate effective track width and does not replace an IMU under wheel slip.
+Use `--angular` when supplying width in metres. The width flag is independent of
+the CSV units and `--units`. The in-code equivalent is
+`deriveDrivetrain(records, left, right, name, output, trackWidthM)` with SI
+records. Omit the width or use zero to combine the linear sides. Paired samples
+must share run ID, test, direction, and exact timestamps. Linear mode averages
+both sides. Angular mode computes position and velocity as `(right-left)/width`
+and differential voltage as `(right-left)/2`. Use deg/s and deg/s² with the
+default CLI gains, or rad/s and rad/s² with SI gains. Apply `left=-V` and
+`right=V` for a pure turn. This model estimates rotation from wheel travel and
+effective width. Wheel slip can make that estimate diverge from an IMU reading.
 Do not mix straight and turn captures into the same named fit.
 
 ## Calibrate effective track width
@@ -387,10 +393,12 @@ References: [WPILib routines](https://docs.wpilib.org/en/stable/docs/software/ad
 
 ## Project documents and license
 
-- [API and output reference](docs/api.md)
+- [Getting started](docs/getting-started.md)
+- [Drivetrain tuning](docs/drivetrain.md) and [unit contracts](docs/units.md)
+- [API and output reference](docs/api.md) and [code structure](docs/code-map.md)
 - [Installation and upgrades](docs/installation.md)
 - [Compatibility and validation limits](docs/compatibility.md)
-- [Release candidate validation record](docs/validation.md)
+- [Validation records](docs/validation.md)
 - [Reported physical Drive Lab results](docs/drive-lab-results.md)
 - [Hardware validation protocol](docs/hardware-validation.md)
 - [Troubleshooting](docs/troubleshooting.md)
