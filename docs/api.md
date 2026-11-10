@@ -19,8 +19,8 @@ C++17. The two PROS headers also require the robot project's PROS toolchain.
 Capture records, fit settings, and geometry use metres or radians, with time in
 seconds unless a field is marked `_ms`.
 
-PROS motor output takes millivolts. The
-named capture engine requests volts and the PROS adapters perform the conversion.
+PROS motor output takes millivolts. The named capture engine requests volts,
+and the PROS adapters perform the conversion.
 The public-unit adapters expose inch/degree output by default. See the
 [unit guide](units.md) for examples.
 
@@ -41,7 +41,7 @@ writes schema version 2. Use `--help` for the argument list and see the
 JSON contains `schema_version`, `model`, `settings`, and a `channels` object
 keyed by channel name. Each channel identifies its position, velocity,
 acceleration, and gain units, reports its effective `min_velocity`, and
-and includes the joint `fit`, `forward` and `reverse` fits, and `warnings`.
+includes the joint `fit`, `forward` and `reverse` fits, and `warnings`.
 
 Requested feedback estimates appear in `velocity_feedback` and
 `position_feedback`. Undefined fit metrics appear as JSON `null`.

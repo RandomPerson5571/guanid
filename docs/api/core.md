@@ -2,17 +2,25 @@
 
 [API index](../api.md)
 
+- [Test and result types](#test-direction-state-and-result) and [configuration](#config)
+- [Samples](#sidesample), [CSV](#legacy-csv-functions), and [feedforward](#feedforward)
+- [Legacy runner](#runroutine)
+
 ## `guanid.hpp`
 
 ### `Test`, `Direction`, `State`, and `Result`
 
 - `Test::quasistatic` applies a voltage ramp. `Test::dynamic` applies a voltage step.
+
 - `Direction::forward` requests positive voltage. `Direction::reverse` requests
   negative voltage. Physical motion follows the configured motor signs.
+
 - `State::idle` means no test is active. The active states are
   `quasistatic_forward`, `quasistatic_reverse`, `dynamic_forward`, and `dynamic_reverse`.
+
 - `Result::running` means a test is active. `completed` means it reached its
   duration and the runner's stop succeeded. Fit success is reported separately.
+
 - `Result::cancelled` means an operator or caller cancelled the test.
   `invalid_config` reports rejected setup. `hardware_error` reports a failed
   hardware operation, invalid telemetry, or failed cleanup stop.
@@ -39,12 +47,17 @@ Public fields and legacy defaults:
 
 - `std::uint32_t duration_ms = 3000` is the test timeout in milliseconds.
   Use a value in [1, 2³¹).
+
 - `std::uint32_t interval_ms = 20` is the sample interval in milliseconds.
   Use a value from 1 through `duration_ms`.
+
 - `double ramp_volts_per_second = 0.5` is the positive quasistatic ramp slope.
+
 - `double step_volts = 3.0` is the positive dynamic voltage magnitude.
+
 - `double max_volts = 6.0` caps either command magnitude. Use a finite value
   greater than zero and at most 12 V. Slope and step must also be finite.
+
 - `std::uint32_t run_id = 0` labels rows from this test. Legacy callers choose
   a fresh ID for each attempt when appending to one file.
 
@@ -61,8 +74,11 @@ double commandVolts(const Config& config, Test test, Direction direction,
 **Parameters**
 
 - `config` is the validated test configuration.
+
 - `test` selects a ramp or step.
+
 - `direction` selects the command sign.
+
 - `elapsed_ms` is the time since test start in milliseconds.
 
 **Returns**
@@ -76,7 +92,9 @@ Signed volts, capped at `max_volts` in magnitude. At or beyond
 `double` and default to zero.
 
 - `applied_volts` is measured motor voltage in volts.
+
 - `position_m` is signed wheel travel position in metres.
+
 - `velocity_mps` is signed wheel speed in metres per second.
 
 `SideSample::valid() const` returns true when all fields are finite and
@@ -90,9 +108,13 @@ Signed volts, capped at `max_volts` in magnitude. At or beyond
 
 - `Test test = Test::quasistatic` and `Direction direction = Direction::forward`
   identify the selected profile and direction.
+
 - `std::uint32_t elapsed_ms = 0` is milliseconds since the test began.
+
 - `double commanded_volts = 0` is the signed command active when telemetry was read.
+
 - `SideSample left` and `SideSample right` hold the two measured sides.
+
 - `std::uint32_t run_id = 0` labels the test attempt.
 
 ### Legacy CSV functions
@@ -155,13 +177,18 @@ Result runRoutine(Mechanism& mechanism, Test test, Direction direction,
   `bool read(SideSample& left, SideSample& right)` to fill a measured snapshot.
   Both hardware methods report success as true. The voltage callback must attempt
   both sides, including for zero.
+
 - `test` selects the ramp or step. `direction` selects its sign.
+
 - `config` sets timeout, sampling, voltage and run ID.
+
 - `keep_running` is a no-argument predicate. Return true while the operator
   and mechanism permit motion. The runner checks it before reading and again
   after sending a sample to the sink.
+
 - `sink` receives a `const Sample&` and returns whether it accepted the row.
   Returning false ends the test with `log_error` if cleanup succeeds.
+
 - `observer` receives the active `State` on start and `State::idle` on finish.
   The default ignores state.
 
